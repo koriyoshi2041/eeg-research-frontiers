@@ -8,6 +8,12 @@
 
 ## Table of Contents
 
+- [Part 0: The Brain — A Primer for Engineers](#part-0-the-brain)
+  - [0.1 Brain Anatomy Essentials](#01-brain-anatomy-essentials)
+  - [0.2 How Neurons Communicate](#02-how-neurons-communicate)
+  - [0.3 From Neurons to Oscillations](#03-from-neurons-to-oscillations)
+  - [0.4 The EEG Signal Chain](#04-the-eeg-signal-chain)
+  - [0.5 EEG vs Other Neuroimaging](#05-eeg-vs-other-neuroimaging)
 - [Part I: Foundations — What is EEG and Why Does It Matter?](#part-i-foundations)
   - [1.1 The Biophysics of Neural Signals](#11-the-biophysics-of-neural-signals)
   - [1.2 Neural Oscillations: The Brain's Frequency Bands](#12-neural-oscillations)
@@ -46,6 +52,149 @@
   - [8.2 Competitions and Challenges](#82-competitions)
   - [8.3 Conferences and Workshops](#83-conferences)
 - [Part IX: Emerging Directions (2025-2027)](#part-ix-emerging-directions)
+
+---
+
+## Part 0: The Brain — A Primer for Engineers
+
+> *You do not need a neuroscience degree to work with EEG data, but you do need a mental model of where the signal comes from. This section builds that model from first principles — anatomy, electrophysiology, circuit dynamics — so that everything in Parts I through IX rests on solid ground.*
+
+### 0.1 Brain Anatomy Essentials
+
+**The cerebral cortex** is the 2-4 mm thick, deeply folded sheet of neural tissue covering the brain. Its folds create **gyri** (ridges) and **sulci** (grooves), expanding the surface area to roughly 2,500 cm^2 — about the size of a large dinner napkin — packed into the skull. The cortex is divided into four lobes:
+
+| Lobe | Location | Primary Functions |
+|------|----------|-------------------|
+| **Frontal** | Front of the brain | Motor control, planning, decision-making, working memory, speech production (Broca's area) |
+| **Parietal** | Top-back | Somatosensory processing, spatial awareness, attention, sensorimotor integration |
+| **Temporal** | Sides (near ears) | Auditory processing, language comprehension (Wernicke's area), memory formation |
+| **Occipital** | Back | Visual processing — the dominant alpha rhythm originates here |
+
+**Grey matter vs white matter.** The cortex (grey matter) contains the **cell bodies** of neurons, where computation happens. Beneath it, **white matter** consists of myelinated axon bundles — the brain's long-range "wiring." Think of grey matter as the compute nodes and white matter as the network cables. EEG overwhelmingly reflects grey matter activity, since that is where the current sources are.
+
+**Cortical layers.** The cortex is organized into **six layers** (I-VI), each with distinct cell types and connectivity patterns. For EEG, **layer 5 (and layer 3) pyramidal neurons** are the stars. These cells have long apical dendrites that extend vertically from deep layers toward the cortical surface. When thousands of them receive synaptic input simultaneously, they produce open-field currents that sum constructively — forming the dipoles that EEG electrodes detect. Layer 5 pyramidal cells are the most excitable cortical neurons, generate the largest postsynaptic currents, and contribute roughly 80% of the extracellular signal strength (Reimann et al., *PLOS Computational Biology*, 2013; Teleniczky et al., *Nature Communications*, 2021).
+
+**Subcortical structures relevant to EEG:**
+- **Thalamus** — The brain's "relay station." Nearly all sensory information passes through the thalamus on its way to the cortex. Critically, the thalamus does not just relay: it participates in thalamo-cortical loops that generate alpha and delta rhythms. When you close your eyes and alpha power surges, that is the thalamus talking.
+- **Hippocampus** — A seahorse-shaped structure deep in the temporal lobe, essential for forming new episodic memories. It generates a prominent theta rhythm (4-8 Hz) during memory encoding and spatial navigation. Hippocampal signals are too deep for scalp EEG to detect directly, but their influence on cortical activity is measurable.
+- **Basal ganglia** — A set of nuclei involved in motor control, procedural learning, and reward. Dysfunction here underlies Parkinson's disease. Basal ganglia influence cortical beta oscillations (13-30 Hz) associated with motor planning and suppression.
+
+**Cortical columns.** The cortex is organized into vertical **minicolumns** (~80-100 neurons, ~30-50 um diameter) and larger **macrocolumns** (~300-500 um diameter, containing 50-100 minicolumns). Within a column, neurons share common inputs and outputs and are densely interconnected vertically, while lateral connections are sparser (Mountcastle, *Brain*, 1997). For EEG, columns matter because synchronous activity within a macrocolumn is the minimal spatial unit that can produce a detectable signal, and neighboring columns tend to synchronize, producing the large-scale coherent dipoles that EEG measures.
+
+**Scale.** The human brain contains approximately **86 billion neurons** connected by roughly **100 trillion (10^14) synapses** (Azevedo et al., *Journal of Comparative Neurology*, 2009). Of these, about 16 billion reside in the cortex. Each cortical neuron receives 5,000-10,000 synaptic inputs. The sheer scale means that EEG, even with 256 electrodes, is observing the aggregate behavior of millions of neurons per electrode — like hearing the roar of a stadium, not individual voices.
+
+**Key references:**
+- Kandel, Schwartz, Jessell, Siegelbaum & Hudspeth, *Principles of Neural Science* (McGraw-Hill, 6th ed., 2021) — The comprehensive neuroscience textbook.
+- Azevedo et al., "Equal Numbers of Neuronal and Non-Neuronal Cells Make the Human Brain an Isometrically Scaled-Up Primate Brain" (*J. Comp. Neurol.*, 2009).
+- Mountcastle, "The Columnar Organization of the Neocortex" (*Brain*, 1997).
+
+### 0.2 How Neurons Communicate
+
+**Action potentials.** A neuron at rest maintains a voltage of about -70 mV across its membrane (inside negative relative to outside). When excitatory input pushes this voltage past a threshold (~-55 mV), voltage-gated sodium channels open in a rapid cascade, depolarizing the membrane to about +30 mV within ~1 ms — the **action potential** (AP, or "spike"). This all-or-nothing signal propagates down the axon at 1-100 m/s (depending on myelination) to the synaptic terminals. The AP is like a digital "1" — it either fires or it does not, with no graded amplitude.
+
+**Synaptic transmission.** When an AP arrives at a synapse, it triggers release of **neurotransmitter** molecules into the synaptic cleft (~20 nm gap). The two most important:
+- **Glutamate** — The brain's primary excitatory neurotransmitter (~80% of cortical synapses). Binding to post-synaptic receptors (AMPA, NMDA) opens cation channels, depolarizing the post-synaptic neuron.
+- **GABA** (gamma-aminobutyric acid) — The primary inhibitory neurotransmitter (~20% of cortical synapses). Opens chloride channels, hyperpolarizing the post-synaptic neuron.
+
+The balance between glutamate (excitation, "E") and GABA (inhibition, "I") — the **E/I balance** — is a fundamental organizing principle. Disruptions in E/I balance are implicated in epilepsy (too much E), autism, schizophrenia, and many other conditions.
+
+**Post-synaptic potentials (PSPs).** When neurotransmitters bind to post-synaptic receptors, they produce slow, graded voltage changes: **EPSPs** (excitatory, +0.5-1 mV) and **IPSPs** (inhibitory, -0.5-1 mV). Unlike the 1 ms action potential, a single PSP lasts **10-100 ms**. This temporal duration is critical for EEG.
+
+**Why PSPs — not action potentials — dominate the EEG signal:**
+1. **Duration**: A PSP lasts 10-100x longer than an AP. Longer-duration signals have a much higher probability of overlapping in time across thousands of neurons, enabling temporal summation.
+2. **Spatial alignment**: Pyramidal cells in layers 3 and 5 are aligned perpendicular to the cortical surface, with apical dendrites pointing "up" (toward the scalp). Synaptic currents flowing along these aligned dendrites produce **open-field dipoles** that add constructively. Action potentials, by contrast, produce brief quadrupolar fields that cancel out rapidly with distance.
+3. **Synchrony requirement**: EEG requires ~10,000-50,000 neurons to fire synchronously within a cortical patch of ~6 cm^2 to produce a measurable scalp signal. The long duration of PSPs makes this synchrony far more achievable than with 1 ms spikes.
+
+**Neural populations.** A single neuron's contribution to scalp EEG is completely invisible — nanovolts at the scalp. EEG is fundamentally a **population-level measurement**: what you see reflects the synchronized post-synaptic activity of millions of pyramidal neurons. Think of a satellite photograph of city lights at night — you see the glow of neighborhoods, not individual bulbs. This is both the strength of EEG (large-scale brain dynamics) and its limitation (single-cell information is irrecoverably lost).
+
+**Key references:**
+- Bear, Connors & Paradiso, *Neuroscience: Exploring the Brain* (Wolters Kluwer, 4th ed., 2016) — Accessible introduction to neural signaling.
+- Buzsaki, Anastassiou & Koch, "The Origin of Extracellular Fields and Currents" (*Nature Reviews Neuroscience*, 2012) — Definitive review of how cellular activity produces measurable electrical fields.
+- Reimann et al., "A Biophysically Detailed Model of Neocortical Local Field Potentials" (*PLOS Computational Biology*, 2013).
+
+### 0.3 From Neurons to Oscillations
+
+Why does the brain oscillate at all? Oscillations are not an accident — they are a fundamental computational mechanism. Here is how they arise at different scales.
+
+**Inhibitory interneuron networks create rhythmic pacing.** The basic mechanism is surprisingly simple. Fast-spiking, parvalbumin-expressing (PV+) interneurons form densely interconnected inhibitory networks. When one fires, it inhibits its neighbors. After the inhibition decays (~10-25 ms), those neighbors fire and inhibit their neighbors, producing a self-sustaining rhythm. The frequency is set by the time constant of the inhibitory post-synaptic potential: fast decay (~10 ms) yields **gamma oscillations** (30-100 Hz), while slower kinetics produce lower-frequency rhythms. This "interneuron network gamma" (ING) mechanism is one of the best-understood oscillatory generators in the brain (Bartos, Vida & Jonas, *Nature Reviews Neuroscience*, 2007).
+
+**Thalamo-cortical loops: the "clock generator" for alpha and delta.** The thalamus and cortex form reciprocal loops: cortical layer 6 neurons project down to the thalamus, and thalamic relay neurons project up to cortical layer 4. Thalamic neurons possess unique ionic conductances (T-type calcium channels, h-current) that enable them to oscillate intrinsically between a "burst mode" (~0.5-4 Hz, generating delta during sleep) and a "tonic mode." The thalamo-cortical loop resonates at **~10 Hz**, producing the **alpha rhythm** — the most prominent oscillation in awake human EEG. When you close your eyes and visual cortex is freed from external input, the thalamo-cortical loop rings at its natural frequency, and alpha power increases dramatically (Lopes da Silva et al., 1974; Hughes & Crunelli, *Neuroscientist*, 2005).
+
+**Local cortical circuits generate gamma oscillations.** Within the cortex, the interplay between excitatory pyramidal neurons and inhibitory interneurons (the "PING" model — Pyramidal-Interneuron Network Gamma) produces gamma-band activity. Pyramidal cells excite interneurons, which then inhibit the pyramidal cells, creating a cycle with a period of ~10-30 ms (30-100 Hz). Gamma oscillations are typically local (small cortical patches) and reflect active computation — feature binding in visual cortex, memory retrieval, conscious perception.
+
+**Hippocampal theta: the memory rhythm.** The hippocampus generates a robust 4-8 Hz theta rhythm during memory encoding, spatial navigation, and REM sleep. Theta is driven by input from the medial septum (which paces hippocampal interneurons) and by intrinsic hippocampal circuitry. Theta provides a temporal scaffolding for memory: individual items are encoded within different gamma cycles nested within each theta cycle (the "theta-gamma code"), allowing the hippocampus to sequence multiple memories within a single oscillatory period (Lisman & Jensen, *Neuron*, 2013).
+
+**Why does the brain oscillate? Functional theories:**
+- **Communication through coherence (CTC)**: Two brain regions can communicate effectively only when their oscillatory cycles are aligned in phase. When a sending region's output arrives during the receiving region's excitable phase, the signal is amplified; otherwise it is suppressed. Oscillations thus act as a dynamic routing mechanism — the brain's equivalent of time-division multiplexing in telecommunications (Fries, *Neuron*, 2015).
+- **Temporal binding**: Neurons representing different features of the same object (color, shape, motion) oscillate in synchrony (typically in the gamma band), "binding" them into a unified percept. This solves the computational problem of how distributed representations are integrated without a central processor.
+- **Metabolic efficiency**: Oscillatory cycles create brief windows for spiking followed by longer inhibitory periods. This pulsed regime is more energy-efficient than continuous firing, reducing metabolic cost while maintaining information throughput — important for an organ consuming 20% of the body's energy at only 2% of its mass.
+
+**Key references:**
+- Buzsaki, *Rhythms of the Brain* (Oxford, 2006) — The foundational text on neural oscillations.
+- Bartos, Vida & Jonas, "Synaptic Mechanisms of Synchronized Gamma Oscillations in Inhibitory Interneuron Networks" (*Nature Reviews Neuroscience*, 2007).
+- Fries, "Rhythms for Cognition: Communication through Coherence" (*Neuron*, 2015).
+- Lisman & Jensen, "The Theta-Gamma Neural Code" (*Neuron*, 2013).
+- Hughes & Crunelli, "Thalamic Mechanisms of EEG Alpha Rhythms and Their Pathological Implications" (*Neuroscientist*, 2005).
+
+### 0.4 The EEG Signal Chain
+
+Follow a signal from its birth in the brain to its digital representation on your screen:
+
+**Step 1: Pyramidal cell PSPs.** Thousands of layer 3/5 pyramidal neurons in a cortical patch receive synchronous synaptic input (e.g., from the thalamus during an alpha cycle). Their apical dendrites depolarize, creating a current sink near the synapse and a current source at the cell body — an **equivalent current dipole** with a magnitude of ~20 nA*m per neuron.
+
+**Step 2: Local field potential (LFP).** The superposition of dipoles from ~10,000+ synchronous neurons produces a measurable **local field potential** in the surrounding tissue. The LFP is the signal measured by intracranial electrodes and represents activity within ~1-3 mm of the electrode tip.
+
+**Step 3: Volume conduction through tissue.** The dipole's electric field propagates outward through brain tissue, cerebrospinal fluid (CSF), skull, and scalp. Each layer has different conductivity: brain (~0.33 S/m), CSF (~1.79 S/m), skull (~0.01 S/m — the major resistive barrier), and scalp (~0.43 S/m). The skull attenuates and smears the signal dramatically, acting as a low-pass spatial filter.
+
+**Step 4: Scalp potential.** By the time the signal reaches the scalp, it is 10-100 uV — roughly 1,000x weaker than the LFP. A cortical dipole at depth *d* produces a scalp projection with spatial extent ~2*d*, limiting spatial resolution to 1-2 cm at best.
+
+**Step 5: Electrode and amplifier.** The Ag/AgCl electrode transduces the ionic scalp current into electronic current. A differential amplifier measures the voltage between the electrode and a reference, rejecting common-mode noise. Modern amplifiers have input impedance >100 MOhm, common-mode rejection ratio >80 dB, and noise floor <1 uV.
+
+**Step 6: Digital signal.** An ADC samples the amplified signal at 250-2048 Hz with 16-24 bit resolution, producing the discrete time series you analyze.
+
+**What is lost at each step:**
+- **Spatial resolution**: Volume conduction through the skull smears each cortical source across 5-10 cm of scalp. Two sources 2 cm apart may be indistinguishable.
+- **Deep sources**: Subcortical structures (hippocampus, basal ganglia, thalamus) are too deep for their fields to propagate to the scalp at measurable amplitudes. EEG is fundamentally a cortical surface measurement.
+- **High frequencies**: The skull and scalp act as a low-pass spatial filter. Gamma activity (>30 Hz) is attenuated more severely than lower frequencies, which is why gamma research often requires intracranial recordings.
+- **Radial vs tangential sources**: Sources in **sulci** (oriented tangentially to the scalp) produce fields that partially cancel due to opposing dipoles on opposite walls. Sources on **gyral crowns** (oriented radially) produce strong, detectable signals. This means roughly one-third of the cortical surface — the sulcal walls — is effectively invisible to EEG.
+
+**The forward problem** (from sources to scalp) can be solved exactly given a head model and known source configuration. Boundary Element Method (BEM) and Finite Element Method (FEM) are standard numerical approaches. The solution is unique — a given source configuration produces exactly one scalp distribution.
+
+**The inverse problem** (from scalp to sources) is **fundamentally ill-posed**: infinitely many source configurations can produce the same scalp distribution. This is not a practical limitation that better math will solve — it is a mathematical fact (Helmholtz, 1853). All source localization methods (dipole fitting, beamforming, eLORETA) make additional assumptions (minimum norm, smoothness, sparsity) to select one solution from the infinite set. This is why source localization results should always be interpreted with caution.
+
+**Key references:**
+- Nunez & Srinivasan, *Electric Fields of the Brain* (Oxford, 2006) — Chapters 1-4 cover the full signal chain.
+- Hallez et al., "Review on Solving the Forward Problem in EEG Source Analysis" (*J. NeuroEngineering and Rehabilitation*, 2007).
+- Grech et al., "Review on Solving the Inverse Problem in EEG Source Analysis" (*J. NeuroEngineering and Rehabilitation*, 2008).
+
+### 0.5 EEG vs Other Neuroimaging
+
+| Method | What It Measures | Spatial Resolution | Temporal Resolution | Invasiveness | Approximate Cost | Portability |
+|--------|-----------------|-------------------|---------------------|-------------|-----------------|-------------|
+| **EEG** | Post-synaptic potentials (scalp voltage) | ~1-2 cm | **~1 ms** | Non-invasive | $10K-100K | **High** (wearable systems exist) |
+| **MEG** | Magnetic fields from PSPs | ~3-5 mm | **~1 ms** | Non-invasive | $2-3M | None (requires shielded room) |
+| **fMRI** | Blood oxygenation (BOLD signal, a proxy for neural activity) | **~1-2 mm** | ~1-2 s | Non-invasive | $1-3M | None (requires MRI scanner) |
+| **fNIRS** | Blood oxygenation (near-infrared absorption) | ~1-3 cm | ~100 ms | Non-invasive | $20K-100K | **High** (wearable) |
+| **ECoG** | Cortical surface field potentials | **~1 mm** | **~1 ms** | **Invasive** (surgical) | N/A (clinical) | None |
+| **Single-unit** | Individual neuron action potentials | **~single neuron** | **~0.1 ms** | **Invasive** (penetrating electrodes) | N/A (clinical/research) | None |
+| **PET** | Metabolic activity (radiotracer uptake) | ~4-8 mm | ~30-60 s | Invasive (injection) | $2-5M | None |
+
+**When to use what:**
+- **EEG** excels when you need millisecond timing (e.g., studying when a cognitive process occurs), low cost, portability, or long-duration recordings (e.g., sleep studies, BCI). Its weakness is spatial ambiguity.
+- **MEG** offers similar temporal resolution with better spatial resolution (magnetic fields are not smeared by the skull), but requires expensive magnetically-shielded rooms and SQUID sensors.
+- **fMRI** is the gold standard for *where* in the brain something happens (millimeter precision), but its temporal resolution is limited by the hemodynamic response (~5-6 s delay). It cannot tell you *when* a process unfolds at the sub-second level.
+- **fNIRS** is the portable, affordable alternative to fMRI. It measures the same hemodynamic signal but with lower spatial resolution. Increasingly used in naturalistic settings (classrooms, social interactions).
+- **ECoG** (electrocorticography) combines the best of both worlds — millimeter spatial resolution with millisecond temporal resolution — but requires a craniotomy. Used clinically for pre-surgical epilepsy mapping and in cutting-edge BCI research (e.g., the Stanford BrainGate and UCSF speech decoding projects).
+- **Single-unit recording** is the ultimate resolution: individual neuron spike trains. Essential for understanding neural coding but limited to small brain regions in animal research or rare clinical settings.
+- **PET** provides unique information about neurotransmitter systems and metabolic activity but involves radioactive tracers and poor temporal resolution.
+
+**The complementarity principle**: No single method captures the full picture. The field increasingly combines modalities — simultaneous EEG-fMRI, EEG-fNIRS for portable multimodal recordings, and ECoG-informed EEG source modeling for ground-truth validation.
+
+**Key references:**
+- Baillet, "Magnetoencephalography for Brain Electrophysiology and Imaging" (*Nature Neuroscience*, 2017).
+- Logothetis, "What We Can Do and What We Cannot Do with fMRI" (*Nature*, 2008).
+- Pinti et al., "The Present and Future Use of Functional Near-Infrared Spectroscopy (fNIRS) for Cognitive Neuroscience" (*Annals of the New York Academy of Sciences*, 2020).
+- Hill et al., "Recording Human Electrocorticographic (ECoG) Signals for Neuroscientific Research and Real-Time Functional Cortical Mapping" (*J. Visualized Experiments*, 2012).
 
 ---
 
